@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: homedeploy
+  name: home-deploy
   labels:
     name: nginx
   namespace: homework
@@ -27,15 +27,18 @@ spec:
           ports:
           - containerPort: 8000
           volumeMounts:
-          - name: workdir
+          - name: home-pv
             mountPath: "/homework"
+          - name: home-configmap
+            mountPath: "/homework/conf"
           lifecycle:
             preStop:
               exec:
                 command: ["rm", "-f", "/homework/index.html"]
           readinessProbe:
-            exec:
-              command: ["find", "/homework/index.html"]
+            httpGet:
+              path: /index.html
+              port: 8000
             initialDelaySeconds: 5
             periodSeconds: 5
       initContainers:
@@ -43,12 +46,19 @@ spec:
           image: busybox:1.28
           command: ["wget", "-O", "/init/index.html", "http://info.cern.ch"]
           volumeMounts:
-          - name: workdir
+          - name: home-pv
             mountPath: "/init"
       dnsPolicy: Default
       volumes:
-      - name: workdir
-        emptyDir: {}
+      - name: home-pv
+        persistentVolumeClaim:
+          claimName: home-pvc
+      - name: home-configmap
+        configMap:
+          name: home-cm
+          items:
+            - key: file
+              path: file
       nodeSelector:
         homework: "true"
 
